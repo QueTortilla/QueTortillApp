@@ -1503,7 +1503,7 @@ function Inventario({ data, setData }) {
   const openEditReceta = (r) => { setRecetaForm({nombre:r.nombre,precio_venta:String(r.precio_venta),ingredientes:r.ingredientes.map(i=>({...i,cantidad:String(i.cantidad)}))}); setEditReceta(r); setShowRecetaForm(true); };
 
   // ─── Producción: descontar inventario ───
-  const registrarProduccion = () => {
+  const registrarProduccion = async () => {
     const receta = data.recetas.find(r=>r.id===prodForm.receta_id);
     if (!receta||!prodForm.cantidad||Number(prodForm.cantidad)<=0) return;
     const cant = Number(prodForm.cantidad);
