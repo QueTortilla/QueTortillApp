@@ -1577,7 +1577,7 @@ function Inventario({ data, setData }) {
                     {inv.minimo>0&&(
                       <div className="mt-2">
                         <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${bajo?"bg-amber-400":"bg-emerald-400"}`} style={{width:`${Math.min(100,Math.round((inv.cantidad/Math.max(inv.minimo*3,inv.cantidad))*100))}%`}}/>
+                          <div className={`h-full rounded-full ${bajo?"bg-amber-400":"bg-emerald-400"}`} style={{width:`${Math.min(100,Math.round((inv.cantidad/Math.max(inv.cantidad_comprada||inv.cantidad,1))*100))}%`}}/>
                         </div>
                       </div>
                     )}
