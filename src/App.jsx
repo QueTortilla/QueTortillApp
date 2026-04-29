@@ -1443,7 +1443,7 @@ function Inventario({ data, setData }) {
   // ── Inventario state ──
   const [showInvForm, setShowInvForm] = useState(false);
   const [editInv, setEditInv] = useState(null);
-  const [invForm, setInvForm] = useState({ nombre:"", cantidad:"", unidad:"g", precio_total:"", minimo:"" });
+  const [invForm, setInvForm] = useState({ nombre:"", cantidad:"", cantidad_comprada:"", unidad:"g", precio_total:"", minimo:"" });
 
   // ── Recetario state ──
   const [showRecetaForm, setShowRecetaForm] = useState(false);
@@ -1459,8 +1459,10 @@ function Inventario({ data, setData }) {
   const calcCostoReceta = (receta) => {
     return receta.ingredientes.reduce((total, ing) => {
       const inv = data.inventario.find(i=>i.id===ing.inv_id);
-      if (!inv || !inv.cantidad || !inv.precio_total) return total;
-      const precioPorUnidad = inv.precio_total / inv.cantidad;
+      if (!inv || !inv.precio_total) return total;
+      const baseQty = inv.cantidad_comprada || inv.cantidad;
+      if (!baseQty) return total;
+      const precioPorUnidad = inv.precio_total / baseQty;
       return total + (precioPorUnidad * Number(ing.cantidad));
     }, 0);
   };
@@ -1468,17 +1470,17 @@ function Inventario({ data, setData }) {
   // ─── Inventario CRUD ───
   const saveInv = async () => {
     if (!invForm.nombre.trim()||!invForm.cantidad) return;
-    const item = { ...invForm, cantidad:Number(invForm.cantidad), precio_total:Number(invForm.precio_total)||0, minimo:Number(invForm.minimo)||0 };
+    const item = { ...invForm, cantidad:Number(invForm.cantidad), cantidad_comprada:Number(invForm.cantidad_comprada)||Number(invForm.cantidad), precio_total:Number(invForm.precio_total)||0, minimo:Number(invForm.minimo)||0 };
     if (editInv) {
       setData(d=>({...d, inventario:d.inventario.map(i=>i.id===editInv.id?{...i,...item}:i)}));
     } else {
       setData(d=>({...d, inventario:[...d.inventario, {...item, id:generateId()}]}));
     }
     setShowInvForm(false); setEditInv(null);
-    setInvForm({ nombre:"", cantidad:"", unidad:"g", precio_total:"", minimo:"" });
+    setInvForm({ nombre:"", cantidad:"", cantidad_comprada:"", unidad:"g", precio_total:"", minimo:"" });
   };
   const deleteInv = async (id) => { if (!window.confirm("¿Eliminar este ingrediente?")) return; await supabase.from("inventario").delete().eq("id", id); setData(d=>({...d, inventario:d.inventario.filter(i=>i.id!==id)})); };
-  const openEditInv = (inv) => { setInvForm({nombre:inv.nombre,cantidad:String(inv.cantidad),unidad:inv.unidad,precio_total:String(inv.precio_total),minimo:String(inv.minimo)}); setEditInv(inv); setShowInvForm(true); };
+  const openEditInv = (inv) => { setInvForm({nombre:inv.nombre,cantidad:String(inv.cantidad),cantidad_comprada:String(inv.cantidad_comprada||inv.cantidad),unidad:inv.unidad,precio_total:String(inv.precio_total),minimo:String(inv.minimo)}); setEditInv(inv); setShowInvForm(true); };
 
   // ─── Receta CRUD ───
   const addIngrediente = () => setRecetaForm(f=>({...f, ingredientes:[...f.ingredientes,{inv_id:"",cantidad:"",unidad:"g"}]}));
@@ -1661,16 +1663,17 @@ function Inventario({ data, setData }) {
         <div className="flex flex-col gap-3">
           <FieldInput label="Nombre" placeholder="Ej: Harina de maíz" value={invForm.nombre} onChange={e=>setInvForm(f=>({...f,nombre:e.target.value}))}/>
           <div className="grid grid-cols-2 gap-3">
-            <FieldInput label="Cantidad actual" type="number" placeholder="0" value={invForm.cantidad} onChange={e=>setInvForm(f=>({...f,cantidad:e.target.value}))}/>
             <FieldSelect label="Unidad" value={invForm.unidad} onChange={e=>setInvForm(f=>({...f,unidad:e.target.value}))}>
               {UNIDADES.map(u=><option key={u} value={u}>{u}</option>)}
             </FieldSelect>
+            <FieldInput label={`Cantidad comprada (${invForm.unidad})`} type="number" placeholder="0" value={invForm.cantidad_comprada} onChange={e=>setInvForm(f=>({...f,cantidad_comprada:e.target.value}))}/>
           </div>
           <FieldInput label="Costo total de lo comprado (₡)" type="number" placeholder="0" value={invForm.precio_total} onChange={e=>setInvForm(f=>({...f,precio_total:e.target.value}))}/>
+          <FieldInput label={`Cantidad actual en stock (${invForm.unidad})`} type="number" placeholder="0" value={invForm.cantidad} onChange={e=>setInvForm(f=>({...f,cantidad:e.target.value}))}/>
           <FieldInput label={`Stock mínimo (${invForm.unidad}) para alertas`} type="number" placeholder="0" value={invForm.minimo} onChange={e=>setInvForm(f=>({...f,minimo:e.target.value}))}/>
-          {invForm.cantidad&&invForm.precio_total&&(
+          {invForm.cantidad_comprada&&invForm.precio_total&&(
             <div className="bg-amber-50 rounded-xl px-3 py-2">
-              <p className="text-xs text-amber-700 font-semibold m-0">Precio por {invForm.unidad}: {formatMoney(Math.round(Number(invForm.precio_total)/Number(invForm.cantidad)))}</p>
+              <p className="text-xs text-amber-700 font-semibold m-0">Precio por {invForm.unidad}: {formatMoney(Math.round(Number(invForm.precio_total)/Number(invForm.cantidad_comprada)))}</p>
             </div>
           )}
           <BtnPrimary onClick={saveInv} disabled={!invForm.nombre||!invForm.cantidad} className="w-full">Guardar</BtnPrimary>
@@ -1981,8 +1984,6 @@ function NotifPanel({ pedidos, pagos, onClose }) {
 
 // ─── Login ───
 function LoginScreen({ onLogin }) {
-  const [email, setEmail] = useState("");
-  const [pass, setPass] = useState("");
   return (
     <div className="min-h-screen bg-stone-50 flex items-center justify-center p-5">
       <div className="w-full max-w-sm">
@@ -1991,18 +1992,10 @@ function LoginScreen({ onLogin }) {
           <p className="text-sm text-stone-400 mt-1">Gestión de tu emprendimiento</p>
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 flex flex-col gap-4">
-          <div>
-            <label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Correo</label>
-            <input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="tucorreo@gmail.com"/>
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Contraseña</label>
-            <input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••"/>
-          </div>
-          <button onClick={()=>onLogin(email||"demo")} className="w-full bg-gradient-to-br from-amber-500 to-orange-600 text-white font-semibold py-3 rounded-xl mt-1">
-            Entrar
+          <p className="text-center text-sm text-stone-500 m-0">Hola, Tony 👋</p>
+          <button onClick={()=>onLogin("Tony")} className="w-full bg-gradient-to-br from-amber-500 to-orange-600 text-white font-semibold py-3 rounded-xl">
+            Ingresar
           </button>
-          <p className="text-center text-xs text-stone-400 m-0">Demo: presiona Entrar sin llenar</p>
         </div>
       </div>
     </div>
