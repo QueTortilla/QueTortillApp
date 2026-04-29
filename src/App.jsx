@@ -955,7 +955,7 @@ function Pedidos({ data, setData }) {
 
   const calcTotal = () => form.items.reduce((s,item)=>s+(Number(item.precio_unitario)*Number(item.cantidad)),0);
 
-  const savePedido = () => {
+  const savePedido = async () => {
     const cliente = data.clientes.find(c=>c.id===form.cliente_id);
     if (!cliente || form.items.some(i=>!i.nombre||!i.cantidad)) return;
     const detalles = form.items.map(item=>({ id:generateId(), tipo:item.tipo, nombre:item.nombre, cantidad:Number(item.cantidad), precio_unitario:Number(item.precio_unitario), subtotal:Number(item.cantidad)*Number(item.precio_unitario) }));
@@ -1466,7 +1466,7 @@ function Inventario({ data, setData }) {
   };
 
   // ─── Inventario CRUD ───
-  const saveInv = () => {
+  const saveInv = async () => {
     if (!invForm.nombre.trim()||!invForm.cantidad) return;
     const item = { ...invForm, cantidad:Number(invForm.cantidad), precio_total:Number(invForm.precio_total)||0, minimo:Number(invForm.minimo)||0 };
     if (editInv) {
