@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { supabase } from "./supabase";
 
 // ─── Helpers ───
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -738,18 +739,22 @@ function Clientes({ data, setData }) {
   const openAdd = () => { setForm({nombre:"",telefono:"",direccion:"",url_ubicacion:""}); setEditCl(null); setShowAdd(true); };
   const openEdit = (cl) => { setForm({nombre:cl.nombre,telefono:cl.telefono,direccion:cl.direccion,url_ubicacion:cl.url_ubicacion||""}); setEditCl(cl); setShowAdd(true); };
 
-  const saveCliente = () => {
+  const saveCliente = async () => {
     if (!form.nombre.trim()) return;
     if (editCl) {
+      await supabase.from("clientes").update(form).eq("id", editCl.id);
       setData(d=>({...d, clientes: d.clientes.map(c=>c.id===editCl.id?{...c,...form}:c)}));
     } else {
-      setData(d=>({...d, clientes: [...d.clientes, {...form, id:generateId(), creado_en:todayStr()}]}));
+      const newC = {...form, id:generateId(), creado_en:todayStr()};
+      await supabase.from("clientes").insert(newC);
+      setData(d=>({...d, clientes: [...d.clientes, newC]}));
     }
     setShowAdd(false);
   };
 
-  const deleteCliente = (id) => {
+  const deleteCliente = async (id) => {
     if (!confirm("¿Eliminar este cliente?")) return;
+    await supabase.from("clientes").delete().eq("id", id);
     setData(d=>({...d, clientes: d.clientes.filter(c=>c.id!==id)}));
   };
 
@@ -956,12 +961,13 @@ function Pedidos({ data, setData }) {
     const detalles = form.items.map(item=>({ id:generateId(), tipo:item.tipo, nombre:item.nombre, cantidad:Number(item.cantidad), precio_unitario:Number(item.precio_unitario), subtotal:Number(item.cantidad)*Number(item.precio_unitario) }));
     const total = detalles.reduce((s,d)=>s+d.subtotal,0);
     const newPedido = { id:generateId(), cliente_id:cliente.id, cliente_nombre:cliente.nombre, fecha_registro:todayStr(), fecha_entrega:form.fecha_entrega, hora_entrega:form.hora_entrega, estado:"pendiente", total, detalles, creado_en:Date.now() };
+    await supabase.from("pedidos").insert({...newPedido, items: newPedido.detalles});
     setData(d=>({...d, pedidos:[...d.pedidos, newPedido]}));
     setShowForm(false);
     setForm({ cliente_id:"", items:[{tipo:"receta",receta_id:"",nombre:"",cantidad:1,precio_unitario:0}], fecha_entrega:todayStr(), hora_entrega:"10:00" });
   };
 
-  const updateStatus = (id, estado) => setData(d=>({...d, pedidos:d.pedidos.map(p=>p.id===id?{...p,estado}:p)}));
+  const updateStatus = async (id, estado) => { await supabase.from("pedidos").update({estado}).eq("id", id); setData(d=>({...d, pedidos:d.pedidos.map(p=>p.id===id?{...p,estado}:p)})); };
 
   return (
     <div className="flex flex-col gap-4">
@@ -1136,9 +1142,11 @@ function Pagos({ data, setData }) {
     return `${dias}d desde entrega`;
   };
 
-  const savePago = () => {
+  const savePago = async () => {
     if (!form.pedido_id||!form.monto||montoNum<=0||excede) return;
-    const newPago = { id:generateId(), pedido_id:form.pedido_id, monto:montoNum, metodo:form.metodo, fecha:form.fecha };
+    const ped = data.pedidos.find(p=>p.id===form.pedido_id);
+    const newPago = { id:generateId(), pedido_id:form.pedido_id, cliente_nombre:ped?.cliente_nombre||"", monto:montoNum, metodo:form.metodo, fecha:form.fecha };
+    await supabase.from("pagos").insert(newPago);
     setData(d=>({...d, pagos:[...d.pagos, newPago]}));
     setShowForm(false);
     setForm({ pedido_id:"", monto:"", metodo:"efectivo", fecha:todayStr() });
@@ -1308,14 +1316,15 @@ function Gastos({ data, setData }) {
     if (data.gastos.some(g=>g.categoria_id===id)) return;
     setData(d=>({...d, expenseCats:d.expenseCats.filter(c=>c.id!==id)}));
   };
-  const saveGasto = () => {
+  const saveGasto = async () => {
     if (!form.categoria_id||!form.monto) return;
     const newGasto = { id:generateId(), ...form, monto:Number(form.monto) };
+    await supabase.from("gastos").insert(newGasto);
     setData(d=>({...d, gastos:[...d.gastos, newGasto]}));
     setShowForm(false);
     setForm({ categoria_id:"", monto:"", descripcion:"", fecha:todayStr() });
   };
-  const removeGasto = (id) => setData(d=>({...d, gastos:d.gastos.filter(g=>g.id!==id)}));
+  const removeGasto = async (id) => { await supabase.from("gastos").delete().eq("id", id); setData(d=>({...d, gastos:d.gastos.filter(g=>g.id!==id)})); };
 
   return (
     <div className="flex flex-col gap-4">
@@ -1468,7 +1477,7 @@ function Inventario({ data, setData }) {
     setShowInvForm(false); setEditInv(null);
     setInvForm({ nombre:"", cantidad:"", unidad:"g", precio_total:"", minimo:"" });
   };
-  const deleteInv = (id) => { if (!window.confirm("¿Eliminar este ingrediente?")) return; setData(d=>({...d, inventario:d.inventario.filter(i=>i.id!==id)})); };
+  const deleteInv = async (id) => { if (!window.confirm("¿Eliminar este ingrediente?")) return; await supabase.from("inventario").delete().eq("id", id); setData(d=>({...d, inventario:d.inventario.filter(i=>i.id!==id)})); };
   const openEditInv = (inv) => { setInvForm({nombre:inv.nombre,cantidad:String(inv.cantidad),unidad:inv.unidad,precio_total:String(inv.precio_total),minimo:String(inv.minimo)}); setEditInv(inv); setShowInvForm(true); };
 
   // ─── Receta CRUD ───
@@ -1476,18 +1485,21 @@ function Inventario({ data, setData }) {
   const removeIngrediente = (i) => setRecetaForm(f=>({...f, ingredientes:f.ingredientes.filter((_,idx)=>idx!==i)}));
   const updateIngrediente = (i,k,v) => setRecetaForm(f=>{ const ings=[...f.ingredientes]; ings[i]={...ings[i],[k]:v}; return {...f,ingredientes:ings}; });
 
-  const saveReceta = () => {
+  const saveReceta = async () => {
     if (!recetaForm.nombre.trim()||!recetaForm.precio_venta) return;
     const receta = { ...recetaForm, precio_venta:Number(recetaForm.precio_venta), ingredientes:recetaForm.ingredientes.filter(i=>i.inv_id&&i.cantidad).map(i=>({...i,cantidad:Number(i.cantidad)})) };
     if (editReceta) {
+      await supabase.from("recetas").update(receta).eq("id", editReceta.id);
       setData(d=>({...d, recetas:d.recetas.map(r=>r.id===editReceta.id?{...r,...receta}:r)}));
     } else {
-      setData(d=>({...d, recetas:[...d.recetas,{...receta,id:generateId()}]}));
+      const newR = {...receta, id:generateId()};
+      await supabase.from("recetas").insert(newR);
+      setData(d=>({...d, recetas:[...d.recetas, newR]}));
     }
     setShowRecetaForm(false); setEditReceta(null);
     setRecetaForm({ nombre:"", precio_venta:"", ingredientes:[{inv_id:"",cantidad:"",unidad:"g"}] });
   };
-  const deleteReceta = (id) => { if (!window.confirm("¿Eliminar esta receta?")) return; setData(d=>({...d, recetas:d.recetas.filter(r=>r.id!==id)})); };
+  const deleteReceta = async (id) => { if (!window.confirm("¿Eliminar esta receta?")) return; await supabase.from("recetas").delete().eq("id", id); setData(d=>({...d, recetas:d.recetas.filter(r=>r.id!==id)})); };
   const openEditReceta = (r) => { setRecetaForm({nombre:r.nombre,precio_venta:String(r.precio_venta),ingredientes:r.ingredientes.map(i=>({...i,cantidad:String(i.cantidad)}))}); setEditReceta(r); setShowRecetaForm(true); };
 
   // ─── Producción: descontar inventario ───
@@ -1503,6 +1515,11 @@ function Inventario({ data, setData }) {
     });
     // Guardar log de producción
     const newProd = { id:generateId(), receta_id:prodForm.receta_id, receta_nombre:receta.nombre, cantidad:cant, fecha:prodForm.fecha, notas:prodForm.notas };
+    await Promise.all([
+      supabase.from("producciones").insert(newProd),
+      ...newInv.filter((inv, idx) => inv.cantidad !== data.inventario[idx]?.cantidad)
+        .map(inv => supabase.from("inventario").update({cantidad: inv.cantidad}).eq("id", inv.id))
+    ]);
     setData(d=>({...d, inventario:newInv, producciones:[...(d.producciones||[]), newProd]}));
     setShowProdForm(false);
     setProdForm({ receta_id:"", cantidad:"", fecha:todayStr(), notas:"" });
@@ -2003,15 +2020,46 @@ export default function App() {
     { id:"rem2", nombre:"Registro de producción (tarde)", hora:"19:00", activo:true, mensaje:"¿Ya registraste la producción de hoy?", tipo:"diario", diasSemana:[], cadaNDias:1, fechaInicio:"" },
   ]);
   const [data, setData] = useState({
-    clientes: INITIAL_CLIENTS,
-    pedidos: INITIAL_PEDIDOS,
-    pagos: INITIAL_PAGOS,
-    gastos: INITIAL_GASTOS,
-    inventario: INITIAL_INVENTARIO,
-    recetas: INITIAL_RECETAS,
+    clientes: [],
+    pedidos: [],
+    pagos: [],
+    gastos: [],
+    inventario: [],
+    recetas: [],
     expenseCats: INITIAL_EXPENSE_CATS,
     producciones: [],
   });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!loggedIn) return;
+    const loadAll = async () => {
+      setLoading(true);
+      try {
+        const [c, pe, pa, g, inv, rec, prod] = await Promise.all([
+          supabase.from("clientes").select("*").order("created_at"),
+          supabase.from("pedidos").select("*").order("created_at"),
+          supabase.from("pagos").select("*").order("created_at"),
+          supabase.from("gastos").select("*").order("created_at"),
+          supabase.from("inventario").select("*").order("created_at"),
+          supabase.from("recetas").select("*").order("created_at"),
+          supabase.from("producciones").select("*").order("created_at"),
+        ]);
+        setData(d => ({
+          ...d,
+          clientes: c.data || [],
+          pedidos: (pe.data || []).map(p => ({ ...p, detalles: p.items || [] })),
+          pagos: pa.data || [],
+          gastos: g.data || [],
+          inventario: inv.data || [],
+          recetas: (rec.data || []).map(r => ({ ...r, ingredientes: r.ingredientes || [] })),
+          producciones: prod.data || [],
+        }));
+      } catch(e) { console.error("Error cargando datos:", e); }
+      setLoading(false);
+    };
+    loadAll();
+  }, [loggedIn]);
 
   const upcomingOrders = useMemo(()=>{
     const n = new Date();
@@ -2032,6 +2080,12 @@ export default function App() {
   ];
 
   if (!loggedIn) return <LoginScreen onLogin={u=>{setCurrentUser(u||"demo");setLoggedIn(true);}}/>;
+  if (loading) return (
+    <div className="min-h-screen bg-stone-50 flex items-center justify-center flex-col gap-3">
+      <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"/>
+      <p className="text-sm text-stone-400">Cargando datos...</p>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-stone-50">
