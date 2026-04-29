@@ -1472,9 +1472,12 @@ function Inventario({ data, setData }) {
     if (!invForm.nombre.trim()||!invForm.cantidad) return;
     const item = { ...invForm, cantidad:Number(invForm.cantidad), cantidad_comprada:Number(invForm.cantidad_comprada)||Number(invForm.cantidad), precio_total:Number(invForm.precio_total)||0, minimo:Number(invForm.minimo)||0 };
     if (editInv) {
+      await supabase.from("inventario").update(item).eq("id", editInv.id);
       setData(d=>({...d, inventario:d.inventario.map(i=>i.id===editInv.id?{...i,...item}:i)}));
     } else {
-      setData(d=>({...d, inventario:[...d.inventario, {...item, id:generateId()}]}));
+      const newItem = {...item, id:generateId()};
+      await supabase.from("inventario").insert(newItem);
+      setData(d=>({...d, inventario:[...d.inventario, newItem]}));
     }
     setShowInvForm(false); setEditInv(null);
     setInvForm({ nombre:"", cantidad:"", cantidad_comprada:"", unidad:"g", precio_total:"", minimo:"" });
@@ -1519,7 +1522,7 @@ function Inventario({ data, setData }) {
     const newProd = { id:generateId(), receta_id:prodForm.receta_id, receta_nombre:receta.nombre, cantidad:cant, fecha:prodForm.fecha, notas:prodForm.notas };
     await Promise.all([
       supabase.from("producciones").insert(newProd),
-      ...newInv.filter((inv, idx) => inv.cantidad !== data.inventario[idx]?.cantidad)
+      ...newInv.filter(inv => { const orig = data.inventario.find(o=>o.id===inv.id); return orig && inv.cantidad !== orig.cantidad; })
         .map(inv => supabase.from("inventario").update({cantidad: inv.cantidad}).eq("id", inv.id))
     ]);
     setData(d=>({...d, inventario:newInv, producciones:[...(d.producciones||[]), newProd]}));
