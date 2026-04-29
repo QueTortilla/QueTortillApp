@@ -1970,8 +1970,7 @@ function LoginScreen({ onLogin }) {
     <div className="min-h-screen bg-stone-50 flex items-center justify-center p-5">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="text-5xl mb-2">🫓</div>
-          <h1 className="text-2xl font-bold text-amber-600 m-0">QueTortillApp</h1>
+          <div className="mx-auto mb-2" style={{maxWidth:280}}><img src="/IconoBanner.jpg" alt="QueTortillApp" style={{width:"100%",objectFit:"contain",mixBlendMode:"multiply"}}/></div>
           <p className="text-sm text-stone-400 mt-1">Gestión de tu emprendimiento</p>
         </div>
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 flex flex-col gap-4">
@@ -2039,7 +2038,7 @@ export default function App() {
       {/* Header */}
       <div className="bg-white border-b border-stone-100 px-4 py-2 flex items-center gap-2 sticky top-0 z-40">
         <div className="flex-1 min-w-0">
-          <img src="./extracted_image_3.jpg" alt="QueTortillApp" style={{height:40,objectFit:"contain",objectPosition:"left",mixBlendMode:"multiply"}}/>
+          <img src="/IconoBanner.jpg" alt="QueTortillApp" style={{height:40,objectFit:"contain",objectPosition:"left",mixBlendMode:"multiply"}}/>
         </div>
         <div className="text-[10px] text-stone-400 leading-tight text-right flex-shrink-0"><span>Hola, {currentUser.split("@")[0]}</span></div>
         <button onClick={()=>setShowNotif(true)} className="relative p-2 rounded-xl hover:bg-stone-100 text-stone-500 flex-shrink-0">
