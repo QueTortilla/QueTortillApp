@@ -5,8 +5,8 @@ import { supabase } from "./supabase";
 const generateId = () => Math.random().toString(36).substr(2, 9);
 const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; };
 const formatMoney = (n) => `₡${Number(n).toLocaleString("es-CR", { minimumFractionDigits: 0 })}`;
-const formatDate = (d) => new Date(d + "T12:00:00").toLocaleDateString("es-CR", { day: "numeric", month: "short", year: "numeric" });
-const formatDateShort = (d) => new Date(d + "T12:00:00").toLocaleDateString("es-CR", { day: "numeric", month: "short" });
+const formatDate = (d) => { if (!d) return "—"; const clean = d.length > 10 ? d : d + "T12:00:00"; return new Date(clean).toLocaleDateString("es-CR", { day: "numeric", month: "short", year: "numeric" }); };
+const formatDateShort = (d) => { if (!d) return "—"; const clean = d.length > 10 ? d : d + "T12:00:00"; return new Date(clean).toLocaleDateString("es-CR", { day: "numeric", month: "short" }); };
 
 // Split bounds into up to 4 segments for charts
 const semanasEnBounds = (bounds) => {
@@ -859,7 +859,7 @@ function Clientes({ data, setData }) {
             <div className="mt-3 pt-3 border-t border-stone-100 flex gap-4">
               <div><p className="text-[10px] text-stone-400 font-semibold uppercase m-0">Pedidos</p><p className="text-base font-bold text-stone-800 m-0">{pedidosCl.length}</p></div>
               <div><p className="text-[10px] text-stone-400 font-semibold uppercase m-0">Cobrado</p><p className="text-base font-bold text-emerald-600 m-0">{formatMoney(totalCobrado)}</p></div>
-              <div><p className="text-[10px] text-stone-400 font-semibold uppercase m-0">Desde</p><p className="text-xs font-semibold text-stone-600 m-0 mt-1">{formatDate(cl.creado_en)}</p></div>
+              <div><p className="text-[10px] text-stone-400 font-semibold uppercase m-0">Desde</p><p className="text-xs font-semibold text-stone-600 m-0 mt-1">{formatDate(cl.created_at)}</p></div>
             </div>
           </div>
         );
