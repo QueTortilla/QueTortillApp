@@ -729,7 +729,7 @@ function Clientes({ data, setData }) {
   const [editCl, setEditCl] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
   const [calMonth, setCalMonth] = useState(() => { const d=new Date(); return {y:d.getFullYear(),m:d.getMonth()}; });
-  const [form, setForm] = useState({ nombre:"", telefono:"", direccion:"", url_ubicacion:"" });
+  const [form, setForm] = useState({ nombre:"", telefono:"", provincia:"", canton:"", distrito:"", direccion:"", url_ubicacion:"", fecha_nacimiento:"", notas:"" });
 
   const filtered = data.clientes.filter(c=>c.nombre.toLowerCase().includes(search.toLowerCase()));
 
@@ -757,7 +757,7 @@ function Clientes({ data, setData }) {
   const saveCliente = async () => {
     if (!form.nombre.trim()) return;
     if (editCl) {
-      const { error } = await supabase.from("clientes").update(form).eq("id", editCl.id);
+      const { error } = await supabase.from("clientes").update({ nombre:form.nombre, telefono:form.telefono, provincia:form.provincia, canton:form.canton, distrito:form.distrito, direccion:form.direccion, url_ubicacion:form.url_ubicacion, fecha_nacimiento:form.fecha_nacimiento, notas:form.notas }).eq("id", editCl.id);
       if (error) { alert("Error guardando: " + error.message); return; }
       setData(d=>({...d, clientes: d.clientes.map(c=>c.id===editCl.id?{...c,...form}:c)}));
     } else {
@@ -1499,11 +1499,11 @@ function Inventario({ data, setData }) {
     if (!invForm.nombre.trim()||!invForm.cantidad) return;
     const item = { ...invForm, cantidad:Number(invForm.cantidad), cantidad_comprada:Number(invForm.cantidad_comprada)||Number(invForm.cantidad), precio_total:Number(invForm.precio_total)||0, minimo:Number(invForm.minimo)||0 };
     if (editInv) {
-      await supabase.from("inventario").update(item).eq("id", editInv.id);
+      await supabase.from("inventario").update({ nombre:item.nombre, cantidad:item.cantidad, cantidad_comprada:item.cantidad_comprada, unidad:item.unidad, precio_total:item.precio_total, minimo:item.minimo }).eq("id", editInv.id);
       setData(d=>({...d, inventario:d.inventario.map(i=>i.id===editInv.id?{...i,...item}:i)}));
     } else {
       const newItem = {...item, id:generateId()};
-      await supabase.from("inventario").insert(newItem);
+      await supabase.from("inventario").insert({ id:newItem.id, nombre:newItem.nombre, cantidad:newItem.cantidad, cantidad_comprada:newItem.cantidad_comprada, unidad:newItem.unidad, precio_total:newItem.precio_total, minimo:newItem.minimo });
       setData(d=>({...d, inventario:[...d.inventario, newItem]}));
     }
     setShowInvForm(false); setEditInv(null);
@@ -1521,11 +1521,11 @@ function Inventario({ data, setData }) {
     if (!recetaForm.nombre.trim()||!recetaForm.precio_venta) return;
     const receta = { ...recetaForm, precio_venta:Number(recetaForm.precio_venta), ingredientes:recetaForm.ingredientes.filter(i=>i.inv_id&&i.cantidad).map(i=>({...i,cantidad:Number(i.cantidad)})) };
     if (editReceta) {
-      await supabase.from("recetas").update(receta).eq("id", editReceta.id);
+      await supabase.from("recetas").update({ nombre:receta.nombre, precio_venta:Number(receta.precio_venta), ingredientes:receta.ingredientes }).eq("id", editReceta.id);
       setData(d=>({...d, recetas:d.recetas.map(r=>r.id===editReceta.id?{...r,...receta}:r)}));
     } else {
       const newR = {...receta, id:generateId()};
-      await supabase.from("recetas").insert(newR);
+      await supabase.from("recetas").insert({ id:newR.id, nombre:newR.nombre, precio_venta:Number(newR.precio_venta), ingredientes:newR.ingredientes });
       setData(d=>({...d, recetas:[...d.recetas, newR]}));
     }
     setShowRecetaForm(false); setEditReceta(null);
