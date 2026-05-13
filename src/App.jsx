@@ -736,17 +736,19 @@ function Clientes({ data, setData }) {
 
   const selectedPedidos = useMemo(()=> selectedDay ? (ordersByDay[selectedDay]||[]) : [], [selectedDay,ordersByDay]);
 
-  const openAdd = () => { setForm({nombre:"",telefono:"",direccion:"",url_ubicacion:""}); setEditCl(null); setShowAdd(true); };
-  const openEdit = (cl) => { setForm({nombre:cl.nombre,telefono:cl.telefono,direccion:cl.direccion,url_ubicacion:cl.url_ubicacion||""}); setEditCl(cl); setShowAdd(true); };
+  const openAdd = () => { setForm({nombre:"",provincia:"",canton:"",distrito:"",direccion:"",url_ubicacion:"",cumpleanos:"",notas:""}); setEditCl(null); setShowAdd(true); };
+  const openEdit = (cl) => { setForm({nombre:cl.nombre||"",provincia:cl.provincia||"",canton:cl.canton||"",distrito:cl.distrito||"",direccion:cl.direccion||"",url_ubicacion:cl.url_ubicacion||"",cumpleanos:cl.cumpleanos||"",notas:cl.notas||""}); setEditCl(cl); setShowAdd(true); };
 
   const saveCliente = async () => {
     if (!form.nombre.trim()) return;
     if (editCl) {
-      await supabase.from("clientes").update(form).eq("id", editCl.id);
+      const { error } = await supabase.from("clientes").update(form).eq("id", editCl.id);
+      if (error) { alert("Error guardando: " + error.message); return; }
       setData(d=>({...d, clientes: d.clientes.map(c=>c.id===editCl.id?{...c,...form}:c)}));
     } else {
       const newC = {...form, id:generateId(), creado_en:todayStr()};
-      await supabase.from("clientes").insert(newC);
+      const { error } = await supabase.from("clientes").insert(newC);
+      if (error) { alert("Error guardando: " + error.message); return; }
       setData(d=>({...d, clientes: [...d.clientes, newC]}));
     }
     setShowAdd(false);
@@ -828,8 +830,10 @@ function Clientes({ data, setData }) {
                 <p className="font-bold text-stone-800 m-0">{cl.nombre}</p>
                 <div className="flex flex-col gap-1 mt-2">
                   {cl.telefono && <div className="flex gap-2 items-center text-stone-500"><I.Phone/><span className="text-xs">{cl.telefono}</span></div>}
+                  {(cl.provincia||cl.canton||cl.distrito) && <div className="flex gap-2 items-center text-stone-500"><I.Map/><span className="text-xs">{[cl.provincia,cl.canton,cl.distrito].filter(Boolean).join(" · ")}</span></div>}
                   {cl.direccion && <div className="flex gap-2 items-center text-stone-500"><I.Map/><span className="text-xs">{cl.direccion}</span></div>}
                   {cl.url_ubicacion && <a href={cl.url_ubicacion} target="_blank" rel="noreferrer" className="flex gap-2 items-center text-amber-600 text-xs no-underline"><I.Map/><span>Ver en mapa</span></a>}
+                  {cl.cumpleanos && <div className="flex gap-2 items-center text-stone-500"><span className="text-xs">🎂</span><span className="text-xs">{cl.cumpleanos}</span></div>}
                 </div>
               </div>
               <div className="flex gap-1.5 ml-2">
@@ -850,8 +854,15 @@ function Clientes({ data, setData }) {
         <div className="flex flex-col gap-3">
           <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Nombre *</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.nombre} onChange={e=>setForm(f=>({...f,nombre:e.target.value}))} placeholder="Nombre del cliente"/></div>
           <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Teléfono</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.telefono} onChange={e=>setForm(f=>({...f,telefono:e.target.value}))} placeholder="8888-8888"/></div>
-          <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Dirección</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.direccion} onChange={e=>setForm(f=>({...f,direccion:e.target.value}))} placeholder="Dirección o referencia"/></div>
+          <div className="grid grid-cols-3 gap-2">
+            <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Provincia</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.provincia} onChange={e=>setForm(f=>({...f,provincia:e.target.value}))} placeholder="San José"/></div>
+            <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Cantón</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.canton} onChange={e=>setForm(f=>({...f,canton:e.target.value}))} placeholder="Central"/></div>
+            <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Distrito</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.distrito} onChange={e=>setForm(f=>({...f,distrito:e.target.value}))} placeholder="Carmen"/></div>
+          </div>
+          <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Dirección exacta</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.direccion} onChange={e=>setForm(f=>({...f,direccion:e.target.value}))} placeholder="100m norte del parque..."/></div>
           <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">URL Waze / Google Maps</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.url_ubicacion} onChange={e=>setForm(f=>({...f,url_ubicacion:e.target.value}))} placeholder="https://waze.com/..."/></div>
+          <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Fecha de cumpleaños</label><input type="date" className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.cumpleanos} onChange={e=>setForm(f=>({...f,cumpleanos:e.target.value}))}/></div>
+          <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Otro (opcional)</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.notas} onChange={e=>setForm(f=>({...f,notas:e.target.value}))} placeholder="Notas adicionales..."/></div>
           <button onClick={saveCliente} className="w-full bg-gradient-to-br from-amber-500 to-orange-600 text-white font-semibold py-2.5 rounded-xl mt-1">Guardar</button>
         </div>
       </Modal>
