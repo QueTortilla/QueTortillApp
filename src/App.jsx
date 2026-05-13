@@ -986,8 +986,8 @@ function Pedidos({ data, setData }) {
     if (!cliente || form.items.some(i=>!i.nombre||!i.cantidad)) return;
     const detalles = form.items.map(item=>({ id:generateId(), tipo:item.tipo, nombre:item.nombre, cantidad:Number(item.cantidad), precio_unitario:Number(item.precio_unitario), subtotal:Number(item.cantidad)*Number(item.precio_unitario) }));
     const total = detalles.reduce((s,d)=>s+d.subtotal,0);
-    const newPedido = { id:generateId(), cliente_id:cliente.id, cliente_nombre:cliente.nombre, fecha_registro:todayStr(), fecha_entrega:form.fecha_entrega, hora_entrega:form.hora_entrega, estado:"pendiente", total, detalles, creado_en:Date.now() };
-    await supabase.from("pedidos").insert({...newPedido, items: newPedido.detalles});
+    const newPedido = { id:generateId(), cliente_id:cliente.id, cliente_nombre:cliente.nombre, fecha_registro:todayStr(), fecha_entrega:form.fecha_entrega, hora_entrega:form.hora_entrega, estado:"pendiente", total, detalles };
+    await supabase.from("pedidos").insert({ id:newPedido.id, cliente_id:newPedido.cliente_id, cliente_nombre:newPedido.cliente_nombre, fecha_registro:newPedido.fecha_registro, fecha_entrega:newPedido.fecha_entrega, hora_entrega:newPedido.hora_entrega, estado:newPedido.estado, total:newPedido.total, items:newPedido.detalles });
     setData(d=>({...d, pedidos:[...d.pedidos, newPedido]}));
     setShowForm(false);
     setForm({ cliente_id:"", items:[{tipo:"receta",receta_id:"",nombre:"",cantidad:1,precio_unitario:0}], fecha_entrega:todayStr(), hora_entrega:"10:00" });
@@ -1344,8 +1344,9 @@ function Gastos({ data, setData }) {
   };
   const saveGasto = async () => {
     if (!form.categoria_id||!form.monto) return;
-    const newGasto = { id:generateId(), ...form, monto:Number(form.monto) };
-    await supabase.from("gastos").insert(newGasto);
+    const catNombre = data.expenseCats.find(c=>c.id===form.categoria_id)?.nombre||"";
+    const newGasto = { id:generateId(), ...form, monto:Number(form.monto), categoria:catNombre };
+    await supabase.from("gastos").insert({ id:newGasto.id, categoria_id:newGasto.categoria_id, categoria:newGasto.categoria, monto:newGasto.monto, descripcion:newGasto.descripcion, fecha:newGasto.fecha });
     setData(d=>({...d, gastos:[...d.gastos, newGasto]}));
     setShowForm(false);
     setForm({ categoria_id:"", monto:"", descripcion:"", fecha:todayStr() });
