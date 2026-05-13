@@ -761,7 +761,7 @@ function Clientes({ data, setData }) {
       if (error) { alert("Error guardando: " + error.message); return; }
       setData(d=>({...d, clientes: d.clientes.map(c=>c.id===editCl.id?{...c,...form}:c)}));
     } else {
-      const newC = {...form, id:generateId(), creado_en:todayStr()};
+      const newC = {...form, id:generateId()};
       const { error } = await supabase.from("clientes").insert(newC);
       if (error) { alert("Error guardando: " + error.message); return; }
       setData(d=>({...d, clientes: [...d.clientes, newC]}));
