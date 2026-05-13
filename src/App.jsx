@@ -622,6 +622,10 @@ function Dashboard({ data, setData }) {
   const chartTort   = last7.map(d=>({ v: data.pedidos.filter(p=>getOrderStatus(p,data.pagos)==="pagado"&&p.fecha_entrega===d).reduce((s,p)=>s+p.detalles.reduce((ss,dd)=>ss+dd.cantidad,0),0) }));
 
   const stockBajo = data.inventario.filter(i=>i.cantidad<=i.minimo);
+
+  // Cumpleaños de hoy
+  const hoyMD = todayStr().slice(5); // "MM-DD"
+  const cumpleHoy = data.clientes.filter(cl => cl.fecha_nacimiento && cl.fecha_nacimiento.slice(5) === hoyMD);
   const upcomingOrders = useMemo(()=>{
     const n = new Date();
     return data.pedidos
@@ -688,6 +692,17 @@ function Dashboard({ data, setData }) {
         </div>
       )}
 
+      {/* Cumpleaños hoy */}
+      {cumpleHoy.length>0&&(
+        <div className="bg-pink-50 border border-pink-200 rounded-2xl p-4 flex gap-3 items-start">
+          <span className="text-xl flex-shrink-0">🎂</span>
+          <div>
+            <p className="text-sm font-bold text-pink-800 m-0">¡Cumpleaños hoy!</p>
+            <p className="text-xs text-pink-700 mt-1 m-0">{cumpleHoy.map(cl=>cl.nombre).join(", ")}</p>
+          </div>
+        </div>
+      )}
+
       {/* Entregas próximas */}
       {upcomingOrders.length>0&&(
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3">
@@ -736,8 +751,8 @@ function Clientes({ data, setData }) {
 
   const selectedPedidos = useMemo(()=> selectedDay ? (ordersByDay[selectedDay]||[]) : [], [selectedDay,ordersByDay]);
 
-  const openAdd = () => { setForm({nombre:"",provincia:"",canton:"",distrito:"",direccion:"",url_ubicacion:"",cumpleanos:"",notas:""}); setEditCl(null); setShowAdd(true); };
-  const openEdit = (cl) => { setForm({nombre:cl.nombre||"",provincia:cl.provincia||"",canton:cl.canton||"",distrito:cl.distrito||"",direccion:cl.direccion||"",url_ubicacion:cl.url_ubicacion||"",cumpleanos:cl.cumpleanos||"",notas:cl.notas||""}); setEditCl(cl); setShowAdd(true); };
+  const openAdd = () => { setForm({nombre:"",provincia:"",canton:"",distrito:"",direccion:"",url_ubicacion:"",fecha_nacimiento:"",notas:""}); setEditCl(null); setShowAdd(true); };
+  const openEdit = (cl) => { setForm({nombre:cl.nombre||"",provincia:cl.provincia||"",canton:cl.canton||"",distrito:cl.distrito||"",direccion:cl.direccion||"",url_ubicacion:cl.url_ubicacion||"",fecha_nacimiento:cl.fecha_nacimiento||"",notas:cl.notas||""}); setEditCl(cl); setShowAdd(true); };
 
   const saveCliente = async () => {
     if (!form.nombre.trim()) return;
@@ -833,7 +848,7 @@ function Clientes({ data, setData }) {
                   {(cl.provincia||cl.canton||cl.distrito) && <div className="flex gap-2 items-center text-stone-500"><I.Map/><span className="text-xs">{[cl.provincia,cl.canton,cl.distrito].filter(Boolean).join(" · ")}</span></div>}
                   {cl.direccion && <div className="flex gap-2 items-center text-stone-500"><I.Map/><span className="text-xs">{cl.direccion}</span></div>}
                   {cl.url_ubicacion && <a href={cl.url_ubicacion} target="_blank" rel="noreferrer" className="flex gap-2 items-center text-amber-600 text-xs no-underline"><I.Map/><span>Ver en mapa</span></a>}
-                  {cl.cumpleanos && <div className="flex gap-2 items-center text-stone-500"><span className="text-xs">🎂</span><span className="text-xs">{cl.cumpleanos}</span></div>}
+                  {cl.fecha_nacimiento && <div className="flex gap-2 items-center text-stone-500"><span className="text-xs">🎂</span><span className="text-xs">{cl.fecha_nacimiento}</span></div>}
                 </div>
               </div>
               <div className="flex gap-1.5 ml-2">
@@ -861,7 +876,7 @@ function Clientes({ data, setData }) {
           </div>
           <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Dirección exacta</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.direccion} onChange={e=>setForm(f=>({...f,direccion:e.target.value}))} placeholder="100m norte del parque..."/></div>
           <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">URL Waze / Google Maps</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.url_ubicacion} onChange={e=>setForm(f=>({...f,url_ubicacion:e.target.value}))} placeholder="https://waze.com/..."/></div>
-          <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Fecha de cumpleaños</label><input type="date" className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.cumpleanos} onChange={e=>setForm(f=>({...f,cumpleanos:e.target.value}))}/></div>
+          <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Fecha de nacimiento</label><input type="date" className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.fecha_nacimiento} onChange={e=>setForm(f=>({...f,fecha_nacimiento:e.target.value}))}/></div>
           <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Otro (opcional)</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.notas} onChange={e=>setForm(f=>({...f,notas:e.target.value}))} placeholder="Notas adicionales..."/></div>
           <button onClick={saveCliente} className="w-full bg-gradient-to-br from-amber-500 to-orange-600 text-white font-semibold py-2.5 rounded-xl mt-1">Guardar</button>
         </div>
