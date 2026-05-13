@@ -1809,18 +1809,25 @@ function Configuracion({ onLogout, currentUser, reminders, setReminders }) {
 
   const toggleDia = (d) => setNewR(prev=>({...prev, diasSemana:prev.diasSemana.includes(d)?prev.diasSemana.filter(x=>x!==d):[...prev.diasSemana,d]}));
 
-  const addReminder = () => {
+  const addReminder = async () => {
     if (!newR.nombre.trim()) return;
     const newReminder = { id:generateId(), nombre:newR.nombre.trim(), hora:`${newR.horaH}:${newR.horaM}`, activo:true, mensaje:newR.mensaje.trim()||newR.nombre.trim(), tipo:newR.tipo, diasSemana:newR.diasSemana, cadaNDias:Number(newR.cadaNDias)||7, fechaInicio:newR.fechaInicio||todayStr() };
+    const { error } = await supabase.from("recordatorios").insert({
+      id: newReminder.id, nombre: newReminder.nombre, hora: newReminder.hora,
+      activo: newReminder.activo, mensaje: newReminder.mensaje, tipo: newReminder.tipo,
+      dias_semana: newReminder.diasSemana, cada_n_dias: newReminder.cadaNDias,
+      fecha_inicio: newReminder.fechaInicio,
+    });
+    if (error) { alert("Error guardando recordatorio: " + error.message); return; }
     setReminders(prev=>[...prev, newReminder]);
     setNewR({ nombre:"", horaH:"09", horaM:"00", mensaje:"", tipo:"diario", diasSemana:[], cadaNDias:"7", fechaInicio:todayStr() });
     setShowNewReminder(false);
   };
 
-  const deleteReminder = (id) => setReminders(prev=>prev.filter(r=>r.id!==id));
-  const toggleReminder = (id) => setReminders(prev=>prev.map(r=>r.id===id?{...r,activo:!r.activo}:r));
+  const deleteReminder = async (id) => { await supabase.from("recordatorios").delete().eq("id", id); setReminders(prev=>prev.filter(r=>r.id!==id)); };
+  const toggleReminder = async (id) => { const r = reminders.find(r=>r.id===id); if (!r) return; await supabase.from("recordatorios").update({activo: !r.activo}).eq("id", id); setReminders(prev=>prev.map(r=>r.id===id?{...r,activo:!r.activo}:r)); };
   const startEdit = (r) => { setEditingReminder(r.id); setEditHora(r.hora); };
-  const saveEdit = (id) => { if (!editHora) return; setReminders(prev=>prev.map(r=>r.id===id?{...r,hora:editHora}:r)); setEditingReminder(null); };
+  const saveEdit = async (id) => { if (!editHora) return; await supabase.from("recordatorios").update({hora: editHora}).eq("id", id); setReminders(prev=>prev.map(r=>r.id===id?{...r,hora:editHora}:r)); setEditingReminder(null); };
 
   return (
     <div className="flex flex-col gap-4">
@@ -2038,10 +2045,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState("");
   const [page, setPage] = useState("dashboard");
   const [showNotif, setShowNotif] = useState(false);
-  const [reminders, setReminders] = useState([
-    { id:"rem1", nombre:"Registro de producción (mañana)", hora:"09:00", activo:true, mensaje:"No olvides registrar las tortillas del día", tipo:"diario", diasSemana:[], cadaNDias:1, fechaInicio:"" },
-    { id:"rem2", nombre:"Registro de producción (tarde)", hora:"19:00", activo:true, mensaje:"¿Ya registraste la producción de hoy?", tipo:"diario", diasSemana:[], cadaNDias:1, fechaInicio:"" },
-  ]);
+  const [reminders, setReminders] = useState([]);
   const [data, setData] = useState({
     clientes: [],
     pedidos: [],
@@ -2059,7 +2063,7 @@ export default function App() {
     const loadAll = async () => {
       setLoading(true);
       try {
-        const [c, pe, pa, g, inv, rec, prod] = await Promise.all([
+        const [c, pe, pa, g, inv, rec, prod, rem] = await Promise.all([
           supabase.from("clientes").select("*").order("created_at"),
           supabase.from("pedidos").select("*").order("created_at"),
           supabase.from("pagos").select("*").order("created_at"),
@@ -2067,6 +2071,7 @@ export default function App() {
           supabase.from("inventario").select("*").order("created_at"),
           supabase.from("recetas").select("*").order("created_at"),
           supabase.from("producciones").select("*").order("created_at"),
+          supabase.from("recordatorios").select("*").order("created_at"),
         ]);
         setData(d => ({
           ...d,
@@ -2078,6 +2083,12 @@ export default function App() {
           recetas: (rec.data || []).map(r => ({ ...r, ingredientes: r.ingredientes || [] })),
           producciones: prod.data || [],
         }));
+        setReminders((rem.data || []).map(r => ({
+          ...r,
+          diasSemana: r.dias_semana || [],
+          cadaNDias: r.cada_n_dias || 7,
+          fechaInicio: r.fecha_inicio || "",
+        })));
       } catch(e) { console.error("Error cargando datos:", e); }
       setLoading(false);
     };
