@@ -293,10 +293,10 @@ const I = {
 };
 
 // ─── Modal ───
-function Modal({ open, onClose, title, children }) {
+function Modal({ open, onClose, title, children, preventBackdropClose=false }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={preventBackdropClose ? undefined : onClose}>
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm"/>
       <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[92vh] overflow-y-auto shadow-2xl" onClick={e=>e.stopPropagation()}>
         <div className="sticky top-0 bg-white/95 backdrop-blur-md px-5 py-4 border-b border-stone-100 flex items-center justify-between rounded-t-2xl z-10">
@@ -865,7 +865,7 @@ function Clientes({ data, setData }) {
         );
       })}
 
-      <Modal open={showAdd} onClose={()=>setShowAdd(false)} title={editCl?"Editar cliente":"Nuevo cliente"}>
+      <Modal open={showAdd} onClose={()=>setShowAdd(false)} title={editCl?"Editar cliente":"Nuevo cliente"} preventBackdropClose>
         <div className="flex flex-col gap-3">
           <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Nombre *</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.nombre} onChange={e=>setForm(f=>({...f,nombre:e.target.value}))} placeholder="Nombre del cliente"/></div>
           <div><label className="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Teléfono</label><input className="w-full border border-stone-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100" value={form.telefono} onChange={e=>setForm(f=>({...f,telefono:e.target.value}))} placeholder="8888-8888"/></div>
