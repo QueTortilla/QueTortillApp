@@ -791,7 +791,7 @@ function Clientes({ data, setData }) {
   const selectedPedidos = useMemo(()=> selectedDay ? (ordersByDay[selectedDay]||[]) : [], [selectedDay,ordersByDay]);
 
   const openAdd = () => { setForm({nombre:"",provincia:"",canton:"",distrito:"",direccion:"",url_ubicacion:"",fecha_nacimiento:"",notas:""}); setEditCl(null); setShowAdd(true); };
-  const openEdit = (cl) => { setForm({nombre:cl.nombre||"",provincia:cl.provincia||"",canton:cl.canton||"",distrito:cl.distrito||"",direccion:cl.direccion||"",url_ubicacion:cl.url_ubicacion||"",fecha_nacimiento:cl.fecha_nacimiento||"",notas:cl.notas||""}); setEditCl(cl); setShowAdd(true); };
+  const openEdit = (cl) => { setForm({nombre:cl.nombre||"",telefono:cl.telefono||"",provincia:cl.provincia||"",canton:cl.canton||"",distrito:cl.distrito||"",direccion:cl.direccion||"",url_ubicacion:cl.url_ubicacion||"",fecha_nacimiento:cl.fecha_nacimiento||"",notas:cl.notas||""}); setEditCl(cl); setShowAdd(true); };
 
   const saveCliente = async () => {
     if (!form.nombre.trim()) return;
