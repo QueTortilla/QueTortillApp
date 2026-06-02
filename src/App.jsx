@@ -1034,19 +1034,30 @@ function Pedidos({ data, setData }) {
 
   const calcTotal = () => form.items.reduce((s,item)=>s+(Number(item.precio_unitario)*Number(item.cantidad)),0);
 
+  const [savingPedido, setSavingPedido] = useState(false);
   const savePedido = async () => {
     const cliente = data.clientes.find(c=>c.id===form.cliente_id);
     if (!cliente || form.items.some(i=>!i.nombre||!i.cantidad)) return;
+    if (savingPedido) return;
+    setSavingPedido(true);
     const detalles = form.items.map(item=>({ id:generateId(), tipo:item.tipo, nombre:item.nombre, cantidad:Number(item.cantidad), precio_unitario:Number(item.precio_unitario), subtotal:Number(item.cantidad)*Number(item.precio_unitario) }));
     const total = detalles.reduce((s,d)=>s+d.subtotal,0);
     const newPedido = { id:generateId(), cliente_id:cliente.id, cliente_nombre:cliente.nombre, fecha_registro:todayStr(), fecha_entrega:form.fecha_entrega, hora_entrega:form.hora_entrega, estado:"pendiente", total, detalles };
-    await supabase.from("pedidos").insert({ id:newPedido.id, cliente_id:newPedido.cliente_id, cliente_nombre:newPedido.cliente_nombre, fecha_registro:newPedido.fecha_registro, fecha_entrega:newPedido.fecha_entrega, hora_entrega:newPedido.hora_entrega, estado:newPedido.estado, total:newPedido.total, items:newPedido.detalles });
+    const { error } = await supabase.from("pedidos").insert({ id:newPedido.id, cliente_id:newPedido.cliente_id, cliente_nombre:newPedido.cliente_nombre, fecha_registro:newPedido.fecha_registro, fecha_entrega:newPedido.fecha_entrega, hora_entrega:newPedido.hora_entrega, estado:newPedido.estado, total:newPedido.total, items:newPedido.detalles });
+    if (error) { alert("Error guardando pedido: " + error.message); setSavingPedido(false); return; }
     setData(d=>({...d, pedidos:[...d.pedidos, newPedido]}));
     setShowForm(false);
     setForm({ cliente_id:"", items:[{tipo:"receta",receta_id:"",nombre:"",cantidad:1,precio_unitario:0}], fecha_entrega:todayStr(), hora_entrega:"10:00" });
+    setSavingPedido(false);
   };
 
   const updateStatus = async (id, estado) => { await supabase.from("pedidos").update({estado}).eq("id", id); setData(d=>({...d, pedidos:d.pedidos.map(p=>p.id===id?{...p,estado}:p)})); };
+  const deletePedido = async (id) => {
+    if (!window.confirm("¿Eliminar este pedido por completo? Esta acción no se puede deshacer.")) return;
+    await supabase.from("pagos").delete().eq("pedido_id", id);
+    await supabase.from("pedidos").delete().eq("id", id);
+    setData(d=>({...d, pedidos:d.pedidos.filter(p=>p.id!==id), pagos:d.pagos.filter(pa=>pa.pedido_id!==id)}));
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -1116,6 +1127,10 @@ function Pedidos({ data, setData }) {
             )}
             {ds==="cancelado"&&<p className="text-xs text-red-500 font-medium m-0">Pedido cancelado</p>}
             {isPaid&&<p className="text-xs text-purple-600 font-medium m-0">✓ Pagado en su totalidad</p>}
+            <button onClick={()=>deletePedido(p.id)}
+              className="flex items-center gap-1 text-[11px] text-stone-400 hover:text-red-500 mt-1 w-fit">
+              <I.Trash/> Eliminar pedido
+            </button>
           </div>
         );
       })}
@@ -1169,7 +1184,7 @@ function Pedidos({ data, setData }) {
             <span className="text-sm font-semibold text-stone-700">Total</span>
             <span className="text-lg font-bold text-amber-700">{formatMoney(calcTotal())}</span>
           </div>
-          <BtnPrimary onClick={savePedido} disabled={!form.cliente_id||form.items.some(i=>!i.nombre)} className="w-full">Guardar pedido</BtnPrimary>
+          <BtnPrimary onClick={savePedido} disabled={!form.cliente_id||form.items.some(i=>!i.nombre)||savingPedido} className="w-full">{savingPedido ? "Guardando..." : "Guardar pedido"}</BtnPrimary>
         </div>
       </Modal>
     </div>
@@ -2204,7 +2219,7 @@ export default function App() {
       </div>
 
       {/* Bottom Nav */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 px-1 pb-2 z-40">
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 px-1 z-40" style={{paddingBottom:"max(8px, env(safe-area-inset-bottom))"}}>
         <div className="flex justify-around">
           {NAV.map(({key,label,icon:Icon})=>(
             <button key={key} onClick={()=>setPage(key)}
