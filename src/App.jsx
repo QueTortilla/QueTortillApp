@@ -443,24 +443,18 @@ function QuickPagoModal({ grupo, pagos, onPago, onClose }) {
 }
 
 // ─── DashPedidosActivos ───
-function DashPedidosActivos({ pedidos, pagos, onStatusChange, onPago, titulo, clientes }) {
+function DashPedidosActivos({ pedidos, pagos, onStatusChange, onPago, titulo, clientes, onReorder }) {
   const [pagoForm, setPagoForm] = useState(null);
   const [expanded, setExpanded] = useState({});
 
   const shareWhatsApp = (group) => {
-    const proxPedido = [...group.pedidos].sort((a,b)=>a.fecha_entrega.localeCompare(b.fecha_entrega))[0];
     const cliente = clientes?.find(c=>c.id===group.cliente_id) || {};
-    const items = proxPedido.detalles.map(d=>`  • ${d.cantidad}x ${d.nombre}`).join("\n");
     const ubicacion = [cliente.provincia, cliente.canton, cliente.distrito].filter(Boolean).join(", ");
     const lineas = [
-      "🫓 *QueTortillApp — Detalle de entrega*",
+      "🫓 *QueTortillApp — Datos de entrega*",
       "",
-      `👤 *Cliente:* ${group.cliente_nombre}`,
-      `📅 *Fecha:* ${formatDate(proxPedido.fecha_entrega)}${proxPedido.hora_entrega ? " · " + proxPedido.hora_entrega : ""}`,
-      "",
-      "*Productos:*",
-      items,
-      "",
+      `👤 *Cliente:* ${group.cliente_nombre || cliente.nombre || ""}`,
+      cliente.telefono ? `📞 *Teléfono:* ${cliente.telefono}` : null,
       ubicacion ? `📍 *Ubicación:* ${ubicacion}` : null,
       cliente.direccion ? `🏠 *Dirección:* ${cliente.direccion}` : null,
       cliente.url_ubicacion ? `🗺️ *Mapa:* ${cliente.url_ubicacion}` : null,
@@ -477,11 +471,35 @@ function DashPedidosActivos({ pedidos, pagos, onStatusChange, onPago, titulo, cl
       map[p.cliente_id].pedidos.push(p);
     });
     return Object.values(map).sort((a,b)=>{
+      const ordenA = Math.min(...a.pedidos.map(p=>p.orden ?? 999999));
+      const ordenB = Math.min(...b.pedidos.map(p=>p.orden ?? 999999));
+      if (ordenA!==ordenB) return ordenA-ordenB;
       const proxA = [...a.pedidos].sort((x,y)=>x.fecha_entrega.localeCompare(y.fecha_entrega))[0];
       const proxB = [...b.pedidos].sort((x,y)=>x.fecha_entrega.localeCompare(y.fecha_entrega))[0];
       return proxA.fecha_entrega.localeCompare(proxB.fecha_entrega);
     });
   },[pedidos]);
+
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+
+  const handleDrop = async (targetIdx) => {
+    if (dragIdx===null || dragIdx===targetIdx) { setDragIdx(null); setOverIdx(null); return; }
+    const reordered = [...clienteGroups];
+    const [moved] = reordered.splice(dragIdx,1);
+    reordered.splice(targetIdx,0,moved);
+    setDragIdx(null); setOverIdx(null);
+    // Persist new order: each group's pedidos get sequential orden values
+    const ordenMap = {};
+    reordered.forEach((group,i)=>{
+      group.pedidos.forEach(p=>{ ordenMap[p.id] = i; });
+    });
+    const updates = Object.entries(ordenMap)
+      .filter(([id,orden])=>pedidos.find(p=>p.id===id)?.orden !== orden)
+      .map(([id,orden])=>supabase.from("pedidos").update({orden}).eq("id",id));
+    await Promise.all(updates);
+    if (onReorder) onReorder(ordenMap);
+  };
 
   const getSaldoCliente = (group)=>{
     const totalPedidos = group.pedidos.reduce((s,p)=>s+p.total,0);
@@ -510,7 +528,7 @@ function DashPedidosActivos({ pedidos, pagos, onStatusChange, onPago, titulo, cl
         <h3 className="font-semibold text-stone-700 text-sm m-0">{titulo||"Pedidos activos"} — {clienteGroups.length} cliente{clienteGroups.length!==1?"s":""} · {pedidos.length} pedido{pedidos.length!==1?"s":""}</h3>
       </div>
       <div className="divide-y divide-stone-50">
-        {clienteGroups.map(group=>{
+        {clienteGroups.map((group,idx)=>{
           const { totalPedidos, totalPagado, saldo } = getSaldoCliente(group);
           const isPaid = saldo<=0;
           const pct = totalPedidos>0 ? Math.min(100,Math.round((totalPagado/totalPedidos)*100)) : 0;
@@ -519,9 +537,18 @@ function DashPedidosActivos({ pedidos, pagos, onStatusChange, onPago, titulo, cl
           const proxEntrega = [...group.pedidos].sort((a,b)=>a.fecha_entrega.localeCompare(b.fecha_entrega))[0];
 
           return (
-            <div key={group.cliente_id}>
+            <div key={group.cliente_id}
+              draggable
+              onDragStart={()=>setDragIdx(idx)}
+              onDragOver={(e)=>{e.preventDefault(); setOverIdx(idx);}}
+              onDrop={()=>handleDrop(idx)}
+              onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
+              className={`transition-colors ${overIdx===idx&&dragIdx!==null&&dragIdx!==idx?"bg-amber-50":""} ${dragIdx===idx?"opacity-40":""}`}>
               <div className="px-4 py-3">
                 <div className="flex items-start gap-2">
+                  <div className="flex-shrink-0 mt-1 cursor-grab active:cursor-grabbing text-stone-300 hover:text-stone-400" title="Arrastrar para reordenar">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+                  </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-stone-700 truncate m-0">{group.cliente_nombre}</p>
                     <p className="text-xs text-amber-600 font-medium m-0">
@@ -755,8 +782,8 @@ function Dashboard({ data, setData }) {
         </div>
       )}
 
-      <DashPedidosActivos titulo="Pendientes / En camino" pedidos={activosPendientes} pagos={data.pagos} onStatusChange={handleStatusChange} onPago={handlePago} clientes={data.clientes}/>
-      {activosEntregados.length>0&&<DashPedidosActivos titulo="Entregados — pendiente de cobro" pedidos={activosEntregados} pagos={data.pagos} onStatusChange={handleStatusChange} onPago={handlePago} clientes={data.clientes}/>}
+      <DashPedidosActivos titulo="Pendientes / En camino" pedidos={activosPendientes} pagos={data.pagos} onStatusChange={handleStatusChange} onPago={handlePago} clientes={data.clientes} onReorder={(ordenMap)=>setData(d=>({...d, pedidos:d.pedidos.map(p=>ordenMap[p.id]!==undefined?{...p,orden:ordenMap[p.id]}:p)}))}/>
+      {activosEntregados.length>0&&<DashPedidosActivos titulo="Entregados — pendiente de cobro" pedidos={activosEntregados} pagos={data.pagos} onStatusChange={handleStatusChange} onPago={handlePago} clientes={data.clientes} onReorder={(ordenMap)=>setData(d=>({...d, pedidos:d.pedidos.map(p=>ordenMap[p.id]!==undefined?{...p,orden:ordenMap[p.id]}:p)}))}/>}
     </div>
   );
 }
@@ -888,20 +915,29 @@ function Clientes({ data, setData }) {
                   {cl.direccion && <div className="flex gap-2 items-center text-stone-500"><I.Map/><span className="text-xs">{cl.direccion}</span></div>}
                   {cl.url_ubicacion && <a href={cl.url_ubicacion} target="_blank" rel="noreferrer" className="flex gap-2 items-center text-amber-600 text-xs no-underline"><I.Map/><span>Ver en mapa</span></a>}
                   {cl.fecha_nacimiento && <div className="flex gap-2 items-center text-stone-500"><span className="text-xs">🎂</span><span className="text-xs">{cl.fecha_nacimiento}</span></div>}
-                  <button onClick={()=>{
-                    const lineas = [
-                      `👤 *${cl.nombre}*`,
-                      cl.telefono ? `📞 ${cl.telefono}` : null,
-                      [cl.provincia,cl.canton,cl.distrito].filter(Boolean).length ? `📍 ${[cl.provincia,cl.canton,cl.distrito].filter(Boolean).join(", ")}` : null,
-                      cl.direccion ? `🏠 ${cl.direccion}` : null,
-                      cl.url_ubicacion ? `🗺️ ${cl.url_ubicacion}` : null,
-                      cl.notas ? `📝 ${cl.notas}` : null,
-                    ].filter(Boolean).join("\n");
-                    window.open(`https://wa.me/?text=${encodeURIComponent(lineas)}`,"_blank");
-                  }} className="flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 w-fit">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                    Compartir contacto
-                  </button>
+                  <div className="flex gap-2 flex-wrap">
+                    <button onClick={()=>{
+                      const lineas = [
+                        `👤 *${cl.nombre}*`,
+                        cl.telefono ? `📞 ${cl.telefono}` : null,
+                        [cl.provincia,cl.canton,cl.distrito].filter(Boolean).length ? `📍 ${[cl.provincia,cl.canton,cl.distrito].filter(Boolean).join(", ")}` : null,
+                        cl.direccion ? `🏠 ${cl.direccion}` : null,
+                        cl.url_ubicacion ? `🗺️ ${cl.url_ubicacion}` : null,
+                        cl.notas ? `📝 ${cl.notas}` : null,
+                      ].filter(Boolean).join("\n");
+                      window.open(`https://wa.me/?text=${encodeURIComponent(lineas)}`,"_blank");
+                    }} className="flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 w-fit">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                      Compartir contacto
+                    </button>
+                    <button onClick={()=>{
+                      const msg = `Hola ${cl.nombre}! 🫓 Para mantener tus datos de entrega al día, por favor llená este formulario: https://forms.gle/Lm9XUiLxMexkPNL3A`;
+                      const tel = cl.telefono ? cl.telefono.replace(/\D/g,"") : "";
+                      window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`,"_blank");
+                    }} className="flex items-center gap-1.5 mt-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium hover:bg-blue-100 w-fit">
+                      📝 Enviar formulario de actualización
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="flex gap-1.5 ml-2">
@@ -1019,8 +1055,29 @@ function Pedidos({ data, setData }) {
         const okCliente = filterCliente==="todos" || p.cliente_id===filterCliente;
         return okStatus && okCliente;
       })
-      .sort((a,b)=>b.fecha_registro.localeCompare(a.fecha_registro));
+      .sort((a,b)=>{
+        const oa = a.orden ?? 999999, ob = b.orden ?? 999999;
+        if (oa!==ob) return oa-ob;
+        return b.fecha_registro.localeCompare(a.fecha_registro);
+      });
   },[data.pedidos, data.pagos, filterStatus, filterCliente]);
+
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+  const handleDropPedido = async (targetIdx) => {
+    if (dragIdx===null || dragIdx===targetIdx) { setDragIdx(null); setOverIdx(null); return; }
+    const reordered = [...sorted];
+    const [moved] = reordered.splice(dragIdx,1);
+    reordered.splice(targetIdx,0,moved);
+    setDragIdx(null); setOverIdx(null);
+    const ordenMap = {};
+    reordered.forEach((p,i)=>{ ordenMap[p.id]=i; });
+    const updates = Object.entries(ordenMap)
+      .filter(([id,orden])=>data.pedidos.find(p=>p.id===id)?.orden !== orden)
+      .map(([id,orden])=>supabase.from("pedidos").update({orden}).eq("id",id));
+    await Promise.all(updates);
+    setData(d=>({...d, pedidos:d.pedidos.map(p=>ordenMap[p.id]!==undefined?{...p,orden:ordenMap[p.id]}:p)}));
+  };
 
   const addItem = () => setForm(f=>({...f, items:[...f.items, {tipo:"receta",receta_id:"",nombre:"",cantidad:1,precio_unitario:0}]}));
   const removeItem = i => setForm(f=>({...f, items:f.items.filter((_,idx)=>idx!==i)}));
@@ -1042,8 +1099,8 @@ function Pedidos({ data, setData }) {
     setSavingPedido(true);
     const detalles = form.items.map(item=>({ id:generateId(), tipo:item.tipo, nombre:item.nombre, cantidad:Number(item.cantidad), precio_unitario:Number(item.precio_unitario), subtotal:Number(item.cantidad)*Number(item.precio_unitario) }));
     const total = detalles.reduce((s,d)=>s+d.subtotal,0);
-    const newPedido = { id:generateId(), cliente_id:cliente.id, cliente_nombre:cliente.nombre, fecha_registro:todayStr(), fecha_entrega:form.fecha_entrega, hora_entrega:form.hora_entrega, estado:"pendiente", total, detalles };
-    const { error } = await supabase.from("pedidos").insert({ id:newPedido.id, cliente_id:newPedido.cliente_id, cliente_nombre:newPedido.cliente_nombre, fecha_registro:newPedido.fecha_registro, fecha_entrega:newPedido.fecha_entrega, hora_entrega:newPedido.hora_entrega, estado:newPedido.estado, total:newPedido.total, items:newPedido.detalles });
+    const newPedido = { id:generateId(), cliente_id:cliente.id, cliente_nombre:cliente.nombre, fecha_registro:todayStr(), fecha_entrega:form.fecha_entrega, hora_entrega:form.hora_entrega, estado:"pendiente", total, detalles, orden:999999 };
+    const { error } = await supabase.from("pedidos").insert({ id:newPedido.id, cliente_id:newPedido.cliente_id, cliente_nombre:newPedido.cliente_nombre, fecha_registro:newPedido.fecha_registro, fecha_entrega:newPedido.fecha_entrega, hora_entrega:newPedido.hora_entrega, estado:newPedido.estado, total:newPedido.total, items:newPedido.detalles, orden:newPedido.orden });
     if (error) { alert("Error guardando pedido: " + error.message); setSavingPedido(false); return; }
     setData(d=>({...d, pedidos:[...d.pedidos, newPedido]}));
     setShowForm(false);
@@ -1085,7 +1142,7 @@ function Pedidos({ data, setData }) {
 
       {sorted.length===0&&<p className="text-center text-stone-400 text-sm py-10">Sin pedidos con este filtro</p>}
 
-      {sorted.map(p=>{
+      {sorted.map((p,idx)=>{
         const ds = getOrderStatus(p, data.pagos);
         const isPaid = ds==="pagado";
         const paid = data.pagos.filter(pg=>pg.pedido_id===p.id).reduce((s,pg)=>s+pg.monto,0);
@@ -1095,7 +1152,16 @@ function Pedidos({ data, setData }) {
         const diffH = (entrega-now)/3600000;
         const pronto = diffH>=0&&diffH<=24&&!["cancelado","pagado"].includes(ds);
         return (
-          <div key={p.id} className={`bg-white rounded-2xl p-4 border shadow-sm ${pronto?"border-amber-300":isPaid?"border-purple-200":"border-stone-100"}`}>
+          <div key={p.id}
+            draggable
+            onDragStart={()=>setDragIdx(idx)}
+            onDragOver={(e)=>{e.preventDefault(); setOverIdx(idx);}}
+            onDrop={()=>handleDropPedido(idx)}
+            onDragEnd={()=>{setDragIdx(null);setOverIdx(null);}}
+            className={`bg-white rounded-2xl p-4 border shadow-sm transition-colors ${pronto?"border-amber-300":isPaid?"border-purple-200":"border-stone-100"} ${overIdx===idx&&dragIdx!==null&&dragIdx!==idx?"bg-amber-50":""} ${dragIdx===idx?"opacity-40":""}`}>
+            <div className="flex items-center gap-1.5 text-stone-300 mb-1 cursor-grab active:cursor-grabbing w-fit" title="Arrastrar para reordenar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+            </div>
             {pronto&&<div className="flex items-center gap-1.5 mb-2 text-amber-700"><I.Bell/><p className="text-xs font-semibold m-0">Entrega próxima</p></div>}
             <div className="flex items-start justify-between mb-1">
               <div>
@@ -2197,6 +2263,10 @@ export default function App() {
           <img src="/IconoBanner.jpg" alt="QueTortillApp" style={{height:40,objectFit:"contain",objectPosition:"left",mixBlendMode:"multiply"}}/>
         </div>
         <div className="text-[10px] text-stone-400 leading-tight text-right flex-shrink-0"><span>Hola, {currentUser.split("@")[0]}</span></div>
+        <a href="https://docs.google.com/forms/u/1/d/1iYp-GXjBaexlFkqVfpw-Hy_irssknkIylK4tOtg-GwQ/edit#response=ACYDBNh7gnsZJXz_MBEIP_gJPpY3FQi-kzhfQ3hQDIk3vdfaE8WL6cF15DyqmZMqVA" target="_blank" rel="noreferrer"
+          className="flex items-center gap-1 px-2 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-[10px] font-medium hover:bg-amber-100 flex-shrink-0 whitespace-nowrap">
+          📋 Respuestas formulario
+        </a>
         <button onClick={()=>setShowNotif(true)} className="relative p-2 rounded-xl hover:bg-stone-100 text-stone-500 flex-shrink-0">
           <I.Bell/>
           {upcomingOrders.length>0 && (
