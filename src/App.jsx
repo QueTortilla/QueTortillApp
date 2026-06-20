@@ -326,13 +326,13 @@ function MiniBarChart({ data, color }) {
 // ─── StatCard (tappable KPI) ───
 function StatCard({ icon, label, value, sub, gradient, chartData, chartColor }) {
   return (
-    <div className="bg-white rounded-2xl p-4 shadow-sm border border-stone-100 flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0" style={{ background: gradient }}>{icon}</div>
-        <div className="min-w-0">
-          <p className="text-[10px] text-stone-400 font-semibold uppercase tracking-wider">{label}</p>
-          <p className="text-xl font-bold text-stone-800 leading-tight truncate">{value}</p>
-          {sub && <p className="text-[11px] text-stone-400">{sub}</p>}
+    <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-stone-100 flex flex-col gap-3 min-w-0">
+      <div className="flex items-start gap-2 min-w-0">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white flex-shrink-0" style={{ background: gradient }}>{icon}</div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[9px] text-stone-400 font-semibold uppercase tracking-wider truncate m-0">{label}</p>
+          <p className="text-base sm:text-xl font-bold text-stone-800 leading-tight break-words m-0">{value}</p>
+          {sub && <p className="text-[10px] text-stone-400 truncate m-0">{sub}</p>}
         </div>
       </div>
       {chartData && <MiniBarChart data={chartData} color={chartColor}/>}
