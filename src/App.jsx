@@ -736,15 +736,17 @@ function Dashboard({ data, setData }) {
           { key:"utilidad",  icon:<I.Dollar/>, label:"Utilidad",            value:formatMoney(utilidad), sub:utilidad>=0?"positiva":"negativa", gradient:utilidad>=0?"linear-gradient(135deg,#7c3aed,#5b21b6)":"linear-gradient(135deg,#dc2626,#b91c1c)", chart:chartUtil, color:utilidad>=0?"#7c3aed":"#dc2626" },
         ].map(s=>(
           <button key={s.key} onClick={()=>setDetalle(s.key)}
-            className="bg-white rounded-2xl p-4 shadow-sm border border-stone-100 flex flex-col gap-3 text-left active:scale-[0.97] transition-transform w-full">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0" style={{background:s.gradient}}>{s.icon}</div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[10px] text-stone-400 font-semibold uppercase tracking-wider m-0">{s.label}</p>
-                <p className="text-xl font-bold text-stone-800 leading-tight truncate m-0">{s.value}</p>
-                {s.sub&&<p className="text-[11px] text-stone-400 m-0">{s.sub}</p>}
+            className="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-stone-100 flex flex-col gap-2 text-left active:scale-[0.97] transition-transform w-full min-w-0 overflow-hidden">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white flex-shrink-0" style={{background:s.gradient}}>{s.icon}</div>
+                <p className="text-[9px] text-stone-400 font-semibold uppercase tracking-wider m-0 truncate">{s.label}</p>
               </div>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-stone-300 flex-shrink-0"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div>
+              <p className="text-lg sm:text-xl font-bold text-stone-800 leading-tight m-0 whitespace-nowrap">{s.value}</p>
+              {s.sub&&<p className="text-[10px] text-stone-400 m-0">{s.sub}</p>}
             </div>
             <MiniBarChart data={s.chart} color={s.color}/>
           </button>
